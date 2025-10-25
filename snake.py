@@ -22,7 +22,7 @@ class Snake():
         self.position.append((x1,y1))
         x1-=1
         self.position.append((x1,y1))
-        self.fruit=(y1-3,x1+2)
+        self.fruit=((y1-3,x1+2))
         self.count=0
 
 class Grid():
@@ -38,15 +38,15 @@ class Can(Canvas):
         self.fruit=0
         self.grid=Grid(dimension)
         self.snake=Snake(dimension)
-        self.god=np.zeros(1,3)
+        self.god=np.zeros((1,3))
         self.init_grid()
         self.model=0
-       
-        
+        self.learn=True
+        self.predict=False
+        self.save= True
+
+
         new_model=True
-        learn=False
-        predict=False
-        save= True
 
         if new_model:
             self.model = tf.keras.models.Sequential()
@@ -56,27 +56,38 @@ class Can(Canvas):
             self.model.add(tf.keras.layers.Dense(5,activation='softmax'))
 
             self.god = tf.keras.models.Sequential()
-            self.god.add(tf.keras.layers.Flatten(input_shape=(1,3,1)))
-            self.model.add(tf.keras.layers.Dense(10, activation='relu'))
-            self.model.add(tf.keras.layers.Dense(3,activation='softmax'))
+            self.god.add(tf.keras.layers.Flatten(3))
+            self.god.add(tf.keras.layers.Dense(10, activation='relu'))
+            self.god.add(tf.keras.layers.Dense(5,activation='softmax'))
 
         else: 
             self.model = tf.keras.models.load_model ('SNAKE.keras')
             self.god = tf.keras.models.load_model ('GOD.keras')
 
-        # if learn:
-        #     self.model.compile(  optimizer='adam',
-        #                     loss='sparse_categorical_crossentropy',
-        #                     metrics=['accuracy'])
-            
-        #     history = self.model.fit(
-        #         x_train,
-        #         y_train,
-        #         epochs=2)
 
-        if save: 
-            self.model.save ('SNAKE.keras')
-            self.god.save ('GOD.keras')
+    def direction(self):
+        res=np.zeros((1,5))
+        if self.snake.dx==0 and self.snake.dy==0:
+            res[0,0]=1
+        if self.snake.dx==0:
+            res[0,1]=0
+            res[0,2]=0
+        if self.snake.dy==0:
+            res[0,3]=0
+            res[0,4]=0
+        if self.snake.dx==-1:
+            res[0,1]=1
+            res[0,2]=0
+        elif self.snake.dx==1:
+            res[0,1]=0
+            res[0,2]=1
+        if self.snake.dy==-1:
+            res[0,3]=1
+            res[0,4]=0
+        elif self.snake.dy==1:
+            res[0,3]=0
+            res[0,4]=1
+        return res
 
     def init_grid(self):
         for i in range (self.snake.length):
@@ -87,6 +98,13 @@ class Can(Canvas):
         self.draw_fruit()
         self.draw_grid
         self.pack()
+
+    def update_grid(self):
+        direction =self.direction()
+        for i in range (5):
+            self.grid.grid[self.dimension[1],i]=direction[0,i]
+        self.grid.grid[self.dimension[1],10],self.grid.grid[self.dimension[1],11]=self.snake.head
+        self.grid.grid[self.dimension[1],12],self.grid.grid[self.dimension[1],13]=self.snake.fruit
 
     def draw_grid(self):      
         color='blue'
@@ -145,21 +163,59 @@ class Can(Canvas):
         x1,y1=x0+CASE,y0+CASE
         self.fruit=self.create_oval(x0,y0,x1,y1,width = 1, fill="red")
 
-    def god(self):
-        pass
-    def update_grid_IA(self):
-        if self.snake.dx==0:
-            self.grid.grid[1]
+    def update_IA(self):
+        x_train_god=np.zeros((0,1,3))
+        y_train_god=np.zeros((1,5))
+        # x_train_god[0]=1
+        # direction =self.direction()
+        # if direction[0,1]==1 or direction[0,2]==1:
+        #     y_train_god[0,3]=0.7
+        #     y_train_god[0,4]=0.7
+        # if direction[0,3]==1 or direction[0,4]==1:
+        #     y_train_god[0,1]=0.7
+        #     y_train_god[0,2]=0.7
+        self.god.compile(  optimizer='adam',
+                        loss='sparse_categorical_crossentropy',
+                        metrics=['accuracy'])
+        
+
+        print (x_train_god)
+        print (x_train_god.shape)
+
+        history_god = self.god.fit(
+            x_train_god,
+            y_train_god,
+            epochs=1)
+        
+        y_train_model=self.god.predict(x_train_god)
+
+
+        self.model.compile(  optimizer='adam',
+                        loss='sparse_categorical_crossentropy',
+                        metrics=['accuracy'])       
+
+    
+        history_model = self.model.fit(
+            self.grid.grid,
+            y_train_model,
+            epochs=1)
+        
+        if self.save: 
+            self.model.save ('SNAKE.keras')
+            self.god.save ('GOD.keras')
+
+
+
 
     def update(self):
             x,y=self.snake.position[0][0]+self.snake.dx,self.snake.position[0][1]+self.snake.dy
             self.snake.head=(x,y)
             growth=False
+            self.update_grid()
             if self.check_obstacle():
                 print('end')
-                self.god[0]=1
-            else:
-                self.god[0]=0 
+                if self.learn:
+                    self.update_IA()
             if self.check_fruit():
                 growth=True
                 self.god[0]=1

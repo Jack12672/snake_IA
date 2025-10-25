@@ -1,11 +1,111 @@
 
 import tensorflow as tf
-# from tensorflow.keras import layers, models
-
 import numpy as np
 
 
+
 print("TensorFlow version:", tf.__version__)
+
+
+
+
+# 1. Données d'exemple
+# -----------------------------
+# 8 exemples, 6 features
+X = np.array([
+    #perdu, fruit, gauche, droite, haut, bas)
+    [1, 0, 1, 0, 0, 0], #perdu
+    [1, 0, 0, 1, 0, 0],
+    [1, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 1],
+
+    [0, 1, 1, 0, 0, 0], #gagné
+    [0, 1, 0, 1, 0, 0],
+    [0, 1, 0, 0, 1, 0],
+    [0, 1, 0, 0, 0, 1]
+], dtype=np.float32)
+
+# Labels (classes 0 à 4) en one-hot
+y = np.array([
+    [0, 0, 0, 0.7, 0.7],  # classe 0 perdu vers gauche
+    [0, 0, 0, 0.7, 0.7],  # classe 1 perdu vers droite
+    [0, 0.7, 0.7, 0, 0],  # classe 2 perdu vers haut
+    [0, 0.7, 0.7, 0, 0],  # classe 3 perdu vers bas
+
+    [1, 0, 0, 0, 0],  # classe 4
+    [1, 0, 0, 0, 0],  # classe 4
+    [1, 0, 0, 0, 0],  # classe 4
+    [1, 0, 0, 0, 0]  # classe 4
+], dtype=np.float32)
+
+new_model=False
+
+# -----------------------------
+# 2. Définition du modèle
+# -----------------------------
+
+
+if new_model:
+    model = tf.keras.models.Sequential([
+        tf.keras.layers.Input(shape=(6,)),      # 6 features
+        tf.keras.layers.Dense(16, activation='relu'),
+        tf.keras.layers.Dense(8, activation='relu'),
+        tf.keras.layers.Dense(5, activation='softmax')  # 5 classes
+    ])
+else:
+    model = tf.keras.models.load_model ('GOD1.keras')
+
+
+# -----------------------------
+# 3. Compilation
+# -----------------------------
+compil=False
+if compil:
+    model.compile(
+        optimizer='adam',
+        loss='categorical_crossentropy',  # one-hot labels
+        metrics=['accuracy']
+    )
+
+    # -----------------------------
+    # 4. Entraînement
+    # -----------------------------
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=200)
+    history = model.fit(X, y,epochs=1, callbacks=[early_stop], verbose=1)
+
+    model.save('GOD1.keras')
+
+    print(history.history)
+
+
+
+
+
+test = np.array([
+    #perdu, fruit, gauche, droite, haut, bas)
+    # [1, 0, 1, 0, 0, 0], #perdu
+    # [1, 0, 0, 1, 0, 0],
+    # [1, 0, 0, 0, 1, 0],
+    # [1, 0, 0, 0, 0, 1],
+
+    # [0, 1, 1, 0, 0, 0], #gagné
+    # [0, 1, 0, 1, 0, 0],
+    # [0, 1, 0, 0, 1, 0],
+    [1, 0, 1, 0, 0, 0]
+], dtype=np.float32)
+
+a=model.predict(test,verbose=0)
+print (a)
+for i in range (len(a)):
+    pos=np.argmax(a[i])
+    print (pos)
+
+exit()
+
+
+
+
+
 
 mnist = tf.keras.datasets.mnist
 
