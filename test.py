@@ -53,7 +53,7 @@ if new_model:
         tf.keras.layers.Dense(5, activation='softmax')  # 5 classes
     ])
 else:
-    model = tf.keras.models.load_model ('GOD1.keras')
+    model = tf.keras.models.load_model ('GOD.keras')
 
 
 # -----------------------------
@@ -71,9 +71,9 @@ if compil:
     # 4. Entraînement
     # -----------------------------
     early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=200)
-    history = model.fit(X, y,epochs=1, callbacks=[early_stop], verbose=1)
+    history = model.fit(X, y,epochs=1, callbacks=[early_stop], verbose=0)
 
-    model.save('GOD1.keras')
+    model.save('GOD.keras')
 
     print(history.history)
 

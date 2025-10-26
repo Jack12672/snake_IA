@@ -3,8 +3,9 @@ import random
 import time
 import tensorflow as tf
 import numpy as np
+import math
 
-SPEED=100
+SPEED=1
 CASE=20
 
 class Snake():
@@ -48,33 +49,41 @@ class Can(Canvas):
         self.init_grid()
         self.model=0
         self.learn=True
+        self.count=0
         self.predict=False
-        self.save= False
+        self.save= True
 
+        np.set_printoptions(precision=2)
 
-        new_model=False
+        new_model=True
 
         if new_model:
             self.model = tf.keras.models.Sequential()
             self.model.add(tf.keras.layers.Input(shape=(11,)))
-            self.model.add(tf.keras.layers.Dense(128, activation='relu'))
+            self.model.add(tf.keras.layers.Dense(64, activation='relu'))
             self.model.add(tf.keras.layers.Dense(64, activation='relu'))
             self.model.add(tf.keras.layers.Dense(3,activation='softmax'))
 
-            self.god = tf.keras.models.Sequential()
-            self.god.add(tf.keras.layers.Input(shape=(6,)))
-            self.god.add(tf.keras.layers.Dense(16, activation='relu'))
-            self.god.add(tf.keras.layers.Dense(8, activation='relu'))
-            self.god.add(tf.keras.layers.Dense(5,activation='softmax'))
+
+            self.model.compile(
+            optimizer='adam',
+            loss='categorical_crossentropy', 
+            metrics=['accuracy']
+            )
+
+            # self.god = tf.keras.models.Sequential()
+            # self.god.add(tf.keras.layers.Input(shape=(6,)))
+            # self.god.add(tf.keras.layers.Dense(16, activation='relu'))
+            # self.god.add(tf.keras.layers.Dense(8, activation='relu'))
+            # self.god.add(tf.keras.layers.Dense(5,activation='softmax'))
 
         else: 
             self.model = tf.keras.models.load_model ('SNAKE.keras')
-            self.god = tf.keras.models.load_model ('GOD.keras')
+            # self.god = tf.keras.models.load_model ('GOD.keras')
 
 
-
-
-
+    def distance(self,coord1,coord2)->float:
+        return math.sqrt((coord1[0]-coord2[0])**2+(coord1[1]-coord2[1])**2)  
 
     def direction(self):
         res=np.zeros((1,5))
@@ -119,7 +128,11 @@ class Can(Canvas):
             x,y=self.snake.position[i]
             self.grid.grid[y,x]=1
             x,y=x*CASE,y*CASE
-            self.obj.append(self.create_oval(x,y,x+CASE,y+CASE,width = 1, fill="green"))
+            if i==0:
+                self.obj.append(self.create_oval(x,y,x+CASE,y+CASE,width = 1, fill="black"))
+            else:
+                self.obj.append(self.create_oval(x,y,x+CASE,y+CASE,width = 1, fill="green"))
+
         
         self.draw_fruit()
         self.draw_grid
@@ -160,7 +173,7 @@ class Can(Canvas):
             self.snake.count-=1
             self.itemconfigure(self.obj[0],fill='DodgerBlue2')
         elif self.snake.count>0:
-            self.itemconfigure(self.obj[0],fill='green')
+            self.itemconfigure(self.obj[0],fill='black')
 
         self.pack()
 
@@ -217,40 +230,15 @@ class Can(Canvas):
 
     def leff_IA(self):
         self.snake.dx,self.snake.dy=self.get_left()
-        # if self.snake.dx==0 and self.snake.dy==1:
-        #     self.snake.dx=1
-        #     self.snake.dy=0
-        # elif self.snake.dx==0 and self.snake.dy==-1:
-        #     self.snake.dx=-1
-        #     self.snake.dy=0
-        # elif self.snake.dx==1 and self.snake.dy==0:
-        #     self.snake.dx=0
-        #     self.snake.dy=-1
-        # elif self.snake.dx==-1 and self.snake.dy==0:
-        #     self.snake.dx=0
-        #     self.snake.dy=1
 
     def right_IA(self):
         self.snake.dx,self.snake.dy=self.get_right()
-        # if self.snake.dx==0 and self.snake.dy==1:
-        #     self.snake.dx=-1
-        #     self.snake.dy=0
-        # elif self.snake.dx==0 and self.snake.dy==-1:
-        #     self.snake.dx=1
-        #     self.snake.dy=0
-        # elif self.snake.dx==1 and self.snake.dy==0:
-        #     self.snake.dx=0
-        #     self.snake.dy=1
-        # elif self.snake.dx==-1 and self.snake.dy==0:
-        #     self.snake.dx=0
-        #     self.snake.dy=-1
-
 
     def update_IA(self):
         x,y = self.snake.head
         dx,dy=self.snake.dx,self.snake.dy
         xf,yf = self.snake.fruit
-
+        if self.count<100: self.count+=1
         #test direction
         if dx==-1 : 
             self.snakeIA[0,3]=1
@@ -317,13 +305,69 @@ class Can(Canvas):
             self.snakeIA[0,9]=0
             self.snakeIA[0,10]=0
  
-        print(self.snakeIA)
+        # print(self.snakeIA)
+        predic=self.model.predict(self.snakeIA,verbose=0)
+        pos=np.argmax(predic)
+        if pos==1: self.leff_IA() 
+        if pos==2: self.right_IA()
+        print (predic,pos)
 
         if self.learn:
             score=np.zeros((1,3),dtype=np.float32)
+            x,y = self.snake.head
+            dx,dy=self.snake.dx,self.snake.dy
+            x+=dx
+            y+=dy
+            xf,yf = self.snake.fruit
+                
             # test mange fruit
+            if x==xf and y==yf:
+                score[0,pos]=1
+                self.count=0
+                print(f"eat {score}")
+            
+            if x>self.dimension[0]-1 or y>self.dimension[1]-1 or self.grid.grid[y,x]==1:
+                score[0,:]=0.5
+                score[0,pos]=0
+                self.count=0
+                print(f"obstacle {score}")
+            
+            if self.count>20:
+                f,dl=0,0
+                l,df=0,0
+                r,dr=0,0
+                obstacle_front=self.snakeIA[0,0]
+                obstacle_left=self.snakeIA[0,1]
+                obstacle_right=self.snakeIA[0,2]
+                if obstacle_front==0: 
+                    f=1
+                    x1,y1=x+dx,y+dy
+                    df=self.distance ((x1,y1),(xf,yf))
+                if obstacle_left==0: 
+                    l=1
+                    dx,dy=self.get_left()
+                    x1,y1=x+dx,y+dy
+                    dl=self.distance ((x1,y1),(xf,yf))
+                if obstacle_right==0: 
+                    r=1
+                    dx,dy=self.get_right()
+                    x1,y1=x+dx,y+dy
+                    dr=self.distance ((x1,y1),(xf,yf))
+                factor=df+dl+dr
+                f*=(factor-df)
+                l*=(factor-dl)
+                r*=(factor-dr)
+                if (f+l+r)>0:
+                    score[0,0]=(f/(f+l+r))
+                    score[0,1]=(l/(f+l+r))
+                    score[0,2]=(r/(f+l+r))
+                print(f"repet {score} {self.count}")
+
+
+
             
 
+            history = self.model.fit(self.snakeIA, score,epochs=1, verbose=0)
 
     def update(self):
             self.update_IA()
@@ -333,6 +377,13 @@ class Can(Canvas):
             
             if self.check_obstacle():
                 print('end')
+                if self.save:
+                    self.model.save ('SNAKE.keras')
+                self.delete("all")
+                self.init_grid()
+                self.pack()
+                self.snake.isdead==False
+
             if self.check_fruit():
                 growth=True
             if self.snake.isdead==False:
@@ -390,6 +441,7 @@ class Window_0(Frame):
         self.master.bind("<KeyPress-Right>",lambda event: self.right(event))
         self.master.bind("<KeyPress-Up>",lambda event: self.up(event))
         self.master.bind("<KeyPress-Down>",lambda event: self.down(event))
+        self.master.bind("<KeyPress-space>",lambda event: self.space(event))
 
         self.master.bind("<Button-1>",lambda event: self.mousedown_left(event))
         self.master.bind("<Button-2>",lambda event: self.mousedown_scroll_wheel(event))
@@ -421,6 +473,15 @@ class Window_0(Frame):
             self.w.snake.dy=1
             self.w.snake.dx=0
 
+    def space (self,event):
+        x,y=self.w.snake.head
+        dx,dy=self.w.get_left()
+        if self.w.grid.grid[dy+y,dx+x]==0:
+            self.w.leff_IA()
+        else: self.w.right_IA()
+        self.w.snake.isdead=False
+        self.start()
+
     def move_mouse (self,event):
         pass
     
@@ -433,9 +494,9 @@ class Window_0(Frame):
         
     def mousedown_scroll_wheel(self, event):
         self.w.snake.isdead=True
-        for y in range (30):
+        for y in range (self.w.dimension[1]):
             l="|"
-            for x in range (30):
+            for x in range (self.w.dimension[0]):
                 if self.w.grid.grid[y,x]==1 : l+="O" 
                 else: l+=" "
             l+="|"
@@ -468,5 +529,5 @@ class Windows(Toplevel):
 
 
 if __name__=="__main__":
-    t=Window_0((30,30))
+    t=Window_0((15,15))
     t.mainloop()
