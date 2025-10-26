@@ -78,8 +78,8 @@ if compil:
     print(history.history)
 
 
-
-
+test1=np.zeros((1,6),dtype=np.float32)
+print (test1)
 
 test = np.array([
     #perdu, fruit, gauche, droite, haut, bas)
@@ -94,7 +94,9 @@ test = np.array([
     [1, 0, 1, 0, 0, 0]
 ], dtype=np.float32)
 
-a=model.predict(test,verbose=0)
+
+print(test)
+a=model.predict(test1,verbose=0)
 print (a)
 for i in range (len(a)):
     pos=np.argmax(a[i])

@@ -27,7 +27,12 @@ class Snake():
 
 class Grid():
     def __init__(self,dimension:tuple [int,int]):
-        self.grid=np.zeros((dimension[1]+1,dimension[0]))
+        self.grid=np.zeros((dimension[1],dimension[0]))
+        self.grid[:, 0] = 1
+        self.grid[:, dimension[0]-1] = 1
+        self.grid[0, :] = 1
+        self.grid[dimension[1]-1, :] = 1
+
         self.dimension=dimension 
 
 class Can(Canvas):
@@ -38,31 +43,37 @@ class Can(Canvas):
         self.fruit=0
         self.grid=Grid(dimension)
         self.snake=Snake(dimension)
-        self.god=np.zeros((1,3))
+        self.god=np.zeros((1,6), dtype=np.float32)
+        self.snakeIA=np.zeros((1,11),dtype=np.float32)
         self.init_grid()
         self.model=0
         self.learn=True
         self.predict=False
-        self.save= True
+        self.save= False
 
 
-        new_model=True
+        new_model=False
 
         if new_model:
             self.model = tf.keras.models.Sequential()
-            self.model.add(tf.keras.layers.Flatten(input_shape=(dimension[1]+1, dimension[0],1)))
+            self.model.add(tf.keras.layers.Input(shape=(11,)))
             self.model.add(tf.keras.layers.Dense(128, activation='relu'))
             self.model.add(tf.keras.layers.Dense(64, activation='relu'))
-            self.model.add(tf.keras.layers.Dense(5,activation='softmax'))
+            self.model.add(tf.keras.layers.Dense(3,activation='softmax'))
 
             self.god = tf.keras.models.Sequential()
-            self.god.add(tf.keras.layers.Flatten(3))
-            self.god.add(tf.keras.layers.Dense(10, activation='relu'))
+            self.god.add(tf.keras.layers.Input(shape=(6,)))
+            self.god.add(tf.keras.layers.Dense(16, activation='relu'))
+            self.god.add(tf.keras.layers.Dense(8, activation='relu'))
             self.god.add(tf.keras.layers.Dense(5,activation='softmax'))
 
         else: 
             self.model = tf.keras.models.load_model ('SNAKE.keras')
             self.god = tf.keras.models.load_model ('GOD.keras')
+
+
+
+
 
 
     def direction(self):
@@ -90,21 +101,29 @@ class Can(Canvas):
         return res
 
     def init_grid(self):
+        self.create_rectangle(      0, 0, 
+                                                    self.dimension[0]*CASE, CASE, 
+                                                    fill='orange', outline="")
+        self.create_rectangle(      0, (self.dimension[1]-1)*CASE, 
+                                                    self.dimension[0]*CASE, (self.dimension[1]-1)*CASE+CASE, 
+                                                    fill='orange', outline="")
+
+        self.create_rectangle(      0, 0, 
+                                                    CASE, (self.dimension[0]-1)*CASE, 
+                                                    fill='orange', outline="")
+        self.create_rectangle(      (self.dimension[0]-1)*CASE, 0, 
+                                                    (self.dimension[0]-1)*CASE+CASE, self.dimension[1]*CASE, 
+                                                    fill='orange', outline="")
+
         for i in range (self.snake.length):
             x,y=self.snake.position[i]
             self.grid.grid[y,x]=1
             x,y=x*CASE,y*CASE
             self.obj.append(self.create_oval(x,y,x+CASE,y+CASE,width = 1, fill="green"))
+        
         self.draw_fruit()
         self.draw_grid
         self.pack()
-
-    def update_grid(self):
-        direction =self.direction()
-        for i in range (5):
-            self.grid.grid[self.dimension[1],i]=direction[0,i]
-        self.grid.grid[self.dimension[1],10],self.grid.grid[self.dimension[1],11]=self.snake.head
-        self.grid.grid[self.dimension[1],12],self.grid.grid[self.dimension[1],13]=self.snake.fruit
 
     def draw_grid(self):      
         color='blue'
@@ -163,62 +182,159 @@ class Can(Canvas):
         x1,y1=x0+CASE,y0+CASE
         self.fruit=self.create_oval(x0,y0,x1,y1,width = 1, fill="red")
 
+    def get_left(self):
+        dx,dy=0,0
+        if self.snake.dx==0 and self.snake.dy==1:
+            dx=1
+            dy=0
+        elif self.snake.dx==0 and self.snake.dy==-1:
+            dx=-1
+            dy=0
+        elif self.snake.dx==1 and self.snake.dy==0:
+            dx=0
+            dy=-1
+        elif self.snake.dx==-1 and self.snake.dy==0:
+            dx=0
+            dy=1
+
+        return (dx,dy)
+
+    def get_right(self):
+        dx,dy=0,0
+        if self.snake.dx==0 and self.snake.dy==1:
+            dx=-1
+            dy=0
+        elif self.snake.dx==0 and self.snake.dy==-1:
+            dx=1
+            dy=0
+        elif self.snake.dx==1 and self.snake.dy==0:
+            dx=0
+            dy=1
+        elif self.snake.dx==-1 and self.snake.dy==0:
+            dx=0
+            dy=-1
+        return (dx,dy)
+
+    def leff_IA(self):
+        self.snake.dx,self.snake.dy=self.get_left()
+        # if self.snake.dx==0 and self.snake.dy==1:
+        #     self.snake.dx=1
+        #     self.snake.dy=0
+        # elif self.snake.dx==0 and self.snake.dy==-1:
+        #     self.snake.dx=-1
+        #     self.snake.dy=0
+        # elif self.snake.dx==1 and self.snake.dy==0:
+        #     self.snake.dx=0
+        #     self.snake.dy=-1
+        # elif self.snake.dx==-1 and self.snake.dy==0:
+        #     self.snake.dx=0
+        #     self.snake.dy=1
+
+    def right_IA(self):
+        self.snake.dx,self.snake.dy=self.get_right()
+        # if self.snake.dx==0 and self.snake.dy==1:
+        #     self.snake.dx=-1
+        #     self.snake.dy=0
+        # elif self.snake.dx==0 and self.snake.dy==-1:
+        #     self.snake.dx=1
+        #     self.snake.dy=0
+        # elif self.snake.dx==1 and self.snake.dy==0:
+        #     self.snake.dx=0
+        #     self.snake.dy=1
+        # elif self.snake.dx==-1 and self.snake.dy==0:
+        #     self.snake.dx=0
+        #     self.snake.dy=-1
+
+
     def update_IA(self):
-        x_train_god=np.zeros((0,1,3))
-        y_train_god=np.zeros((1,5))
-        # x_train_god[0]=1
-        # direction =self.direction()
-        # if direction[0,1]==1 or direction[0,2]==1:
-        #     y_train_god[0,3]=0.7
-        #     y_train_god[0,4]=0.7
-        # if direction[0,3]==1 or direction[0,4]==1:
-        #     y_train_god[0,1]=0.7
-        #     y_train_god[0,2]=0.7
-        self.god.compile(  optimizer='adam',
-                        loss='sparse_categorical_crossentropy',
-                        metrics=['accuracy'])
+        x,y = self.snake.head
+        dx,dy=self.snake.dx,self.snake.dy
+        xf,yf = self.snake.fruit
+
+        #test direction
+        if dx==-1 : 
+            self.snakeIA[0,3]=1
+            self.snakeIA[0,4]=0
+            self.snakeIA[0,5]=0
+            self.snakeIA[0,6]=0
+        elif dx==1 : 
+            self.snakeIA[0,3]=0
+            self.snakeIA[0,4]=1
+            self.snakeIA[0,5]=0
+            self.snakeIA[0,6]=0
+        elif dy==-1 : 
+            self.snakeIA[0,3]=0
+            self.snakeIA[0,4]=0
+            self.snakeIA[0,5]=1
+            self.snakeIA[0,6]=0
+        elif dy==1 : 
+            self.snakeIA[0,3]=0
+            self.snakeIA[0,4]=0
+            self.snakeIA[0,5]=0
+            self.snakeIA[0,6]=1
+
+        # tests obstacles       
+        x_front,y_front=x+dx,y+dy #obstacle devant
+        if x_front>=self.dimension[0] or y_front>=self.dimension[1]:
+            self.snakeIA[0,0]=1  
+        elif self.grid.grid[y_front,x_front]==1: 
+            self.snakeIA[0,0]=1
+        else: self.snakeIA[0,0]=0
         
+        dx,dy=self.get_left()#obstacle gauche
+        x_left,y_left=x+dx,y+dy
+        if x_left>=self.dimension[0] or y_left>=self.dimension[1]:
+            self.snakeIA[0,1]=1  
+        elif self.grid.grid[y_left,x_left]==1: 
+            self.snakeIA[0,1]=1
+        else: self.snakeIA[0,1]=0
 
-        print (x_train_god)
-        print (x_train_god.shape)
+        dx,dy=self.get_right() #obstacle droite
+        x_rignt,y_right=x+dx,y+dy
+        if x_rignt>=self.dimension[0] or y_right>=self.dimension[1]:
+            self.snakeIA[0,2]=1  
+        elif self.grid.grid[y_right,x_rignt]==1:
+            self.snakeIA[0,2]=1
+        else: self.snakeIA[0,2]=0
 
-        history_god = self.god.fit(
-            x_train_god,
-            y_train_god,
-            epochs=1)
-        
-        y_train_model=self.god.predict(x_train_god)
+        #test position fruit
+        if xf<x:
+            self.snakeIA[0,7]=1
+            self.snakeIA[0,8]=0
+        elif xf>x:
+            self.snakeIA[0,7]=0
+            self.snakeIA[0,8]=1
+        else: 
+            self.snakeIA[0,7]=0
+            self.snakeIA[0,8]=0
+        if yf<y:
+            self.snakeIA[0,9]=1
+            self.snakeIA[0,10]=0
+        elif yf>y:
+            self.snakeIA[0,9]=0
+            self.snakeIA[0,10]=1
+        else: 
+            self.snakeIA[0,9]=0
+            self.snakeIA[0,10]=0
+ 
+        print(self.snakeIA)
 
-
-        self.model.compile(  optimizer='adam',
-                        loss='sparse_categorical_crossentropy',
-                        metrics=['accuracy'])       
-
-    
-        history_model = self.model.fit(
-            self.grid.grid,
-            y_train_model,
-            epochs=1)
-        
-        if self.save: 
-            self.model.save ('SNAKE.keras')
-            self.god.save ('GOD.keras')
-
-
+        if self.learn:
+            score=np.zeros((1,3),dtype=np.float32)
+            # test mange fruit
+            
 
 
     def update(self):
+            self.update_IA()
             x,y=self.snake.position[0][0]+self.snake.dx,self.snake.position[0][1]+self.snake.dy
             self.snake.head=(x,y)
             growth=False
-            self.update_grid()
+            
             if self.check_obstacle():
                 print('end')
-                if self.learn:
-                    self.update_IA()
             if self.check_fruit():
                 growth=True
-                self.god[0]=1
             if self.snake.isdead==False:
                 self.draw_snake(growth)
 
@@ -283,11 +399,14 @@ class Window_0(Frame):
 
 
     def left (self,event):
+        # self.w.leff_IA()
         if self.w.snake.dx!=1:
             self.w.snake.dx=-1
             self.w.snake.dy=0
 
     def right (self,event):
+        # self.w.right_IA()
+
         if self.w.snake.dx!=-1:
             self.w.snake.dx=1
             self.w.snake.dy=0
