@@ -71,12 +71,13 @@ class Can(Canvas):
         np.set_printoptions(precision=2)
 
         new_model=False
+        self.name='SNAKE_256_256.keras'
 
         if new_model:
             self.model = tf.keras.models.Sequential()
             self.model.add(tf.keras.layers.Input(shape=(11,)))
-            self.model.add(tf.keras.layers.Dense(64, activation='relu'))
-            self.model.add(tf.keras.layers.Dense(64, activation='relu'))
+            self.model.add(tf.keras.layers.Dense(256, activation='relu'))
+            self.model.add(tf.keras.layers.Dense(256, activation='relu'))
             self.model.add(tf.keras.layers.Dense(3,activation='softmax'))
             #output
             # 0 -> direction inchangée 0/1
@@ -98,7 +99,7 @@ class Can(Canvas):
             # self.god.add(tf.keras.layers.Dense(5,activation='softmax'))
 
         else: 
-            self.model = tf.keras.models.load_model ('SNAKE.keras')
+            self.model = tf.keras.models.load_model (self.name)
             # self.god = tf.keras.models.load_model ('GOD.keras')
 
 
@@ -155,7 +156,7 @@ class Can(Canvas):
                                                     fill='orange', outline="", tags="border"))
 
         self.border.append(self.create_rectangle(      0, 0, 
-                                                    CASE, (self.dimension[0]-1)*CASE, 
+                                                    CASE, (self.dimension[1]-1)*CASE, 
                                                     fill='orange', outline="", tags="border"))
         self.border.append(self.create_rectangle(      (self.dimension[0]-1)*CASE, 0, 
                                                     (self.dimension[0]-1)*CASE+CASE, self.dimension[1]*CASE, 
@@ -300,25 +301,19 @@ class Can(Canvas):
 
         # tests obstacles       
         x_front,y_front=x+dx,y+dy #obstacle devant
-        if x_front>=self.dimension[0] or y_front>=self.dimension[1]:
-            self.snakeIA[0,0]=1  
-        elif self.grid.grid[y_front,x_front]==1: 
+        if self.grid.grid[y_front,x_front]==1: 
             self.snakeIA[0,0]=1
         else: self.snakeIA[0,0]=0
         
         dx,dy=self.get_left()#obstacle gauche
         x_left,y_left=x+dx,y+dy
-        if x_left>=self.dimension[0] or y_left>=self.dimension[1]:
-            self.snakeIA[0,1]=1  
-        elif self.grid.grid[y_left,x_left]==1: 
+        if self.grid.grid[y_left,x_left]==1: 
             self.snakeIA[0,1]=1
         else: self.snakeIA[0,1]=0
 
         dx,dy=self.get_right() #obstacle droite
         x_rignt,y_right=x+dx,y+dy
-        if x_rignt>=self.dimension[0] or y_right>=self.dimension[1]:
-            self.snakeIA[0,2]=1  
-        elif self.grid.grid[y_right,x_rignt]==1:
+        if self.grid.grid[y_right,x_rignt]==1:
             self.snakeIA[0,2]=1
         else: self.snakeIA[0,2]=0
 
@@ -346,71 +341,60 @@ class Can(Canvas):
  
         if self.learn:
             ep=1
-            score=np.zeros((1,3),dtype=np.float32)
+            # score=np.zeros((1,3),dtype=np.float32)
             x,y = self.snake.head
-            dx,dy=self.snake.dx,self.snake.dy
-            x+=dx
-            y+=dy
             xf,yf = self.snake.fruit
-                
+            
+                # tout droit
+            dx,dy=self.snake.dx,self.snake.dy
+            x_front=x+dx
+            y_front=y+dy
+                # à gauche
+            dx,dy=self.get_left()
+            x_left=x+dx
+            y_left=y+dy
+                # à droite
+            dx,dy=self.get_right()
+            x_right=x+dx
+            y_right=y+dy
+
             # test mange fruit
-            if x==xf and y==yf:
-                score[0,pos]=1
-                self.count=0
+            if x_front==xf and y_front==yf:
+                score=np.array([[1, 0, 0]], dtype=np.float32)          
+            elif x_left==xf and y_left==yf:
+                score=np.array([[0, 1, 0]], dtype=np.float32)
+            elif x_right==xf and y_right==yf:
+                score=np.array([[0, 0, 1]], dtype=np.float32)
+            else: #test obstacles
+                dist_front=self.distance ((x_front,y_front),(xf,yf))
+                dist_left=self.distance ((x_left,y_left),(xf,yf))
+                dist_right=self.distance ((x_right,y_right),(xf,yf))
+                possibles=[]
+                possible_front=1
+                possible_left=1
+                possible_right=1
+                if self.grid.grid[y_front,x_front]==1: possible_front=10000
+                if self.grid.grid[y_left,x_left]==1: possible_left=10000
+                if self.grid.grid[y_right,x_right]==1: possible_right=10000
+
+                possibles.append((dist_front*possible_front,'front'))
+                possibles.append((dist_left*possible_left,'left'))
+                possibles.append((dist_right*possible_right,'right'))
+
+                possibles=sorted(possibles,key=lambda dist: dist[0])
                 
-                # print(f"eat {score}")
-            
-            # elif x>self.dimension[0]-1 or y>self.dimension[1]-1 or self.grid.grid[y,x]==1:
-            #     f,l,r=0,0,0
-            #     obstacle_front=self.snakeIA[0,0]
-            #     obstacle_left=self.snakeIA[0,1]
-            #     obstacle_right=self.snakeIA[0,2]
-            #     if obstacle_front==0: 
-            #         f=1
-            #     if obstacle_left==0: 
-            #         l=1
-            #     if obstacle_right==0: 
-            #         r=1
-            #     if (f+l+r)>0:
-            #         score[0,0]=(f/(f+l+r))
-            #         score[0,1]=(l/(f+l+r))
-            #         score[0,2]=(r/(f+l+r))
-            #     self.count=0
-            
-            # elif self.count>10:
-            else:
-                df=1000
-                dl=1000
-                dr=1000
-                obstacle_front=self.snakeIA[0,0]
-                obstacle_left=self.snakeIA[0,1]
-                obstacle_right=self.snakeIA[0,2]
-                if obstacle_front==0: 
-                    x1,y1=x+dx,y+dy
-                    df=self.distance ((x1,y1),(xf,yf))
-                if obstacle_left==0: 
-                    dx,dy=self.get_left()
-                    x1,y1=x+dx,y+dy
-                    dl=self.distance ((x1,y1),(xf,yf))
-                if obstacle_right==0: 
-                    dx,dy=self.get_right()
-                    x1,y1=x+dx,y+dy
-                    dr=self.distance ((x1,y1),(xf,yf))
-                
-                if df<dl and df<dr:
-                    score[0,0]=1     
-                if dl<df and dl<dr: 
-                    score[0,1]=1
-                if dr<df and dr<dl: 
-                    score[0,2]=1
-                
-                print(f"repet {score}  head {self.snake.head}  dx={self.snake.dx}   dy={self.snake.dy} soit ({self.snake.head[0]+self.snake.dx},{self.snake.head[1]+self.snake.dy}) fruit {self.snake.fruit}")
+                if possibles[0][1]=='front':
+                    score=np.array([[1, 0, 0]], dtype=np.float32)          
+                elif possibles[0][1]=='left':
+                    score=np.array([[0, 1, 0]], dtype=np.float32)
+                elif possibles[0][1]=='right':
+                    score=np.array([[0, 0, 1]], dtype=np.float32)
+
             history = self.model.fit(self.snakeIA, score,epochs=ep, verbose=0)
 
 
         # print(self.snakeIA)
         predic=self.model.predict(self.snakeIA,verbose=0)
-        # print (predic,pos)
         pos=np.argmax(predic)
         if pos==1: self.left_IA() 
         if pos==2: self.right_IA()
@@ -425,7 +409,7 @@ class Can(Canvas):
             if self.check_obstacle():
                 print('end')
                 if self.save:
-                    self.model.save ('SNAKE.keras')
+                    self.model.save (self.name)
                 self.reset_grid()
 
             if self.check_fruit():
@@ -573,5 +557,5 @@ class Windows(Toplevel):
         x, y = event.x, event.y 
 
 if __name__=="__main__":
-    t=Window_0((15,15))
+    t=Window_0((15,10))
     t.mainloop()
