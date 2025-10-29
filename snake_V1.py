@@ -28,11 +28,11 @@ class Snake():
 
 class Grid():
     def __init__(self,dimension:tuple [int,int]):
-        self.grid=np.zeros((dimension[1],dimension[0],2), dtype=np.float32)
-        self.grid[:, 0, 0] = 1
-        self.grid[:, dimension[0]-1, 0] = 1
-        self.grid[0, :, 0] = 1
-        self.grid[dimension[1]-1, :, 0] = 1
+        self.grid=np.zeros((dimension[1],dimension[0]))
+        self.grid[:, 0] = 1
+        self.grid[:, dimension[0]-1] = 1
+        self.grid[0, :] = 1
+        self.grid[dimension[1]-1, :] = 1
 
         self.dimension=dimension 
 
@@ -45,6 +45,7 @@ class Can(Canvas):
         self.fruit=0
         self.grid=Grid(dimension)
         self.snake=Snake(dimension)
+        self.god=np.zeros((1,6), dtype=np.float32)
         self.snakeIA=np.zeros((1,11),dtype=np.float32)
             # input de snake
             # 0 -> obstacle devant 0/1
@@ -62,20 +63,15 @@ class Can(Canvas):
 
         self.init_grid()
         self.model=0
-        self.learn_model=False
-        self.learn_god=True
+        self.learn=True
         self.count=0
         self.predict=False
-        self.save_model= False
-        self.save_god=True
-
+        self.save= True
 
         np.set_printoptions(precision=2)
 
         new_model=False
-        new_god=False
-        self.name_model='SNAKE_256_256.keras'
-        self.name_god='GOD_F32K3_F64K3_128_L15_H10.keras'
+        self.name='SNAKE_256_256.keras'
 
         if new_model:
             self.model = tf.keras.models.Sequential()
@@ -87,30 +83,24 @@ class Can(Canvas):
             # 0 -> direction inchangée 0/1
             # 1 -> direction gauche 0/1
             # 2 -> direction droite 0/1
+
+
+
             self.model.compile(
             optimizer='adam',
             loss='categorical_crossentropy', 
             metrics=['accuracy']
             )
+
+            # self.god = tf.keras.models.Sequential()
+            # self.god.add(tf.keras.layers.Input(shape=(6,)))
+            # self.god.add(tf.keras.layers.Dense(16, activation='relu'))
+            # self.god.add(tf.keras.layers.Dense(8, activation='relu'))
+            # self.god.add(tf.keras.layers.Dense(5,activation='softmax'))
+
         else: 
-            self.model = tf.keras.models.load_model (self.name_model)
-
-        if new_god:
-            self.god = tf.keras.models.Sequential()
-            self.god.add(tf.keras.layers.Conv2D(32,(3,3),activation='relu', padding='same', input_shape=(self.dimension[1], self.dimension[0],2)))
-            self.god.add(tf.keras.layers.MaxPooling2D(2,2))
-            self.god.add(tf.keras.layers.Conv2D(64, (3,3), activation='relu', padding='same'))
-            self.god.add(tf.keras.layers.Flatten())
-            self.god.add(tf.keras.layers.Dense(128, activation='relu'))            
-            self.god.add(tf.keras.layers.Dense(3,activation='softmax'))
-
-            self.god.compile(
-            optimizer='adam',
-            loss='categorical_crossentropy', 
-            metrics=['accuracy']
-            )
-        else:
-            self.god = tf.keras.models.load_model (self.name_god)
+            self.model = tf.keras.models.load_model (self.name)
+            # self.god = tf.keras.models.load_model ('GOD.keras')
 
 
     def distance(self,coord1,coord2)->float:
@@ -156,6 +146,7 @@ class Can(Canvas):
         self.snake=Snake(self.dimension)
         self.init_grid()
    
+
     def init_grid(self):
         self.border.append(self.create_rectangle(      0, 0, 
                                                     self.dimension[0]*CASE, CASE, 
@@ -173,7 +164,7 @@ class Can(Canvas):
 
         for i in range (self.snake.length):
             x,y=self.snake.position[i]
-            self.grid.grid[y,x,0]=1
+            self.grid.grid[y,x]=1
             x,y=x*CASE,y*CASE
             if i==0:
                 self.obj.append(self.create_oval(x,y,x+CASE,y+CASE,width = 1, fill="black", tags="snake"))
@@ -199,7 +190,7 @@ class Can(Canvas):
         if growth!=True:
             l=self.snake.length
             x,y=self.snake.position[l-1][0],self.snake.position[l-1][1]
-            self.grid.grid[y,x,0]=0
+            self.grid.grid[y,x]=0
         for i in range (self.snake.length-2,-1,-1):
             x,y=self.snake.position[i][0],self.snake.position[i][1]
             x1,y1=self.snake.position[i+1][0],self.snake.position[i+1][1]
@@ -208,7 +199,7 @@ class Can(Canvas):
         x,y=self.snake.head
         x1,y1=self.snake.position[0][0],self.snake.position[0][1]
         self.snake.position[0]=(x,y)
-        self.grid.grid[y,x,0]=1
+        self.grid.grid[y,x]=1
         self.move(self.obj[0],(x-x1)*CASE,(y-y1)*CASE)
         if self.snake.count>15:
             self.snake.count-=1
@@ -235,10 +226,7 @@ class Can(Canvas):
             seed = time.time() / 3600 
             random.seed(seed)
             y=random.randrange(maxy)
-            if self.grid.grid[y,x,0]==0: 
-                self.grid.grid[y,x,1]=1
-                isvalid=False
-                
+            if self.grid.grid[y,x]==0 : isvalid=False
 
         self.snake.fruit=(x,y)
         x0,y0=x*CASE,y*CASE
@@ -285,75 +273,75 @@ class Can(Canvas):
         self.snake.dx,self.snake.dy=self.get_right()
 
     def update_IA(self):
-        def update_model():
-            x,y = self.snake.head
-            dx,dy=self.snake.dx,self.snake.dy
-            xf,yf = self.snake.fruit
-            if self.count<100: self.count+=1
-            #test direction
-            if dx==-1 : 
-                self.snakeIA[0,3]=1
-                self.snakeIA[0,4]=0
-                self.snakeIA[0,5]=0
-                self.snakeIA[0,6]=0
-            elif dx==1 : 
-                self.snakeIA[0,3]=0
-                self.snakeIA[0,4]=1
-                self.snakeIA[0,5]=0
-                self.snakeIA[0,6]=0
-            elif dy==-1 : 
-                self.snakeIA[0,3]=0
-                self.snakeIA[0,4]=0
-                self.snakeIA[0,5]=1
-                self.snakeIA[0,6]=0
-            elif dy==1 : 
-                self.snakeIA[0,3]=0
-                self.snakeIA[0,4]=0
-                self.snakeIA[0,5]=0
-                self.snakeIA[0,6]=1
+        x,y = self.snake.head
+        dx,dy=self.snake.dx,self.snake.dy
+        xf,yf = self.snake.fruit
+        if self.count<100: self.count+=1
+        #test direction
+        if dx==-1 : 
+            self.snakeIA[0,3]=1
+            self.snakeIA[0,4]=0
+            self.snakeIA[0,5]=0
+            self.snakeIA[0,6]=0
+        elif dx==1 : 
+            self.snakeIA[0,3]=0
+            self.snakeIA[0,4]=1
+            self.snakeIA[0,5]=0
+            self.snakeIA[0,6]=0
+        elif dy==-1 : 
+            self.snakeIA[0,3]=0
+            self.snakeIA[0,4]=0
+            self.snakeIA[0,5]=1
+            self.snakeIA[0,6]=0
+        elif dy==1 : 
+            self.snakeIA[0,3]=0
+            self.snakeIA[0,4]=0
+            self.snakeIA[0,5]=0
+            self.snakeIA[0,6]=1
 
-            # tests obstacles       
-            x_front,y_front=x+dx,y+dy #obstacle devant
-            if self.grid.grid[y_front,x_front,0]==1: 
-                self.snakeIA[0,0]=1
-            else: self.snakeIA[0,0]=0
-            
-            dx,dy=self.get_left()#obstacle gauche
-            x_left,y_left=x+dx,y+dy
-            if self.grid.grid[y_left,x_left,0]==1: 
-                self.snakeIA[0,1]=1
-            else: self.snakeIA[0,1]=0
+        # tests obstacles       
+        x_front,y_front=x+dx,y+dy #obstacle devant
+        if self.grid.grid[y_front,x_front]==1: 
+            self.snakeIA[0,0]=1
+        else: self.snakeIA[0,0]=0
+        
+        dx,dy=self.get_left()#obstacle gauche
+        x_left,y_left=x+dx,y+dy
+        if self.grid.grid[y_left,x_left]==1: 
+            self.snakeIA[0,1]=1
+        else: self.snakeIA[0,1]=0
 
-            dx,dy=self.get_right() #obstacle droite
-            x_rignt,y_right=x+dx,y+dy
-            if self.grid.grid[y_right,x_rignt,0]==1:
-                self.snakeIA[0,2]=1
-            else: self.snakeIA[0,2]=0
+        dx,dy=self.get_right() #obstacle droite
+        x_rignt,y_right=x+dx,y+dy
+        if self.grid.grid[y_right,x_rignt]==1:
+            self.snakeIA[0,2]=1
+        else: self.snakeIA[0,2]=0
 
-            #test position fruit
-            if xf<x:
-                self.snakeIA[0,7]=1
-                self.snakeIA[0,8]=0
-            elif xf>x:
-                self.snakeIA[0,7]=0
-                self.snakeIA[0,8]=1
-            else: 
-                self.snakeIA[0,7]=0
-                self.snakeIA[0,8]=0
-            if yf<y:
-                self.snakeIA[0,9]=1
-                self.snakeIA[0,10]=0
-            elif yf>y:
-                self.snakeIA[0,9]=0
-                self.snakeIA[0,10]=1
-            else: 
-                self.snakeIA[0,9]=0
-                self.snakeIA[0,10]=0
+        #test position fruit
+        if xf<x:
+            self.snakeIA[0,7]=1
+            self.snakeIA[0,8]=0
+        elif xf>x:
+            self.snakeIA[0,7]=0
+            self.snakeIA[0,8]=1
+        else: 
+            self.snakeIA[0,7]=0
+            self.snakeIA[0,8]=0
+        if yf<y:
+            self.snakeIA[0,9]=1
+            self.snakeIA[0,10]=0
+        elif yf>y:
+            self.snakeIA[0,9]=0
+            self.snakeIA[0,10]=1
+        else: 
+            self.snakeIA[0,9]=0
+            self.snakeIA[0,10]=0
  
-        update_model()
 
-        if self.learn_model:
+ 
+        if self.learn:
             ep=1
+            # score=np.zeros((1,3),dtype=np.float32)
             x,y = self.snake.head
             xf,yf = self.snake.fruit
             
@@ -385,9 +373,9 @@ class Can(Canvas):
                 possible_front=1
                 possible_left=1
                 possible_right=1
-                if self.grid.grid[y_front,x_front,0]==1: possible_front=10000
-                if self.grid.grid[y_left,x_left,0]==1: possible_left=10000
-                if self.grid.grid[y_right,x_right,0]==1: possible_right=10000
+                if self.grid.grid[y_front,x_front]==1: possible_front=10000
+                if self.grid.grid[y_left,x_left]==1: possible_left=10000
+                if self.grid.grid[y_right,x_right]==1: possible_right=10000
 
                 possibles.append((dist_front*possible_front,'front'))
                 possibles.append((dist_left*possible_left,'left'))
@@ -404,18 +392,10 @@ class Can(Canvas):
 
             history = self.model.fit(self.snakeIA, score,epochs=ep, verbose=0)
 
-        if self.learn_god:
-            predic=self.model.predict(self.snakeIA,verbose=0)
-            # if np.argmax(y)==0: predic=np.array([[1,0,0]],dtype=np.float32)
-            # elif np.argmax(y)==1: predic=np.array([[0,1,0]],dtype=np.float32)
-            # else: predic=np.array([[0,0,1]],dtype=np.float32)
-            x = np.expand_dims(self.grid.grid, axis=0)
-            history = self.god.fit(x, predic,epochs=1, verbose=0)
-        
-        x = np.expand_dims(self.grid.grid, axis=0)
-        predic=self.god(x,verbose=0)
-        # predic=self.model(self.snakeIA,verbose=0)
-        pos=np.argmax(predic) 
+
+        # print(self.snakeIA)
+        predic=self.model.predict(self.snakeIA,verbose=0)
+        pos=np.argmax(predic)
         if pos==1: self.left_IA() 
         if pos==2: self.right_IA()
 
@@ -428,10 +408,8 @@ class Can(Canvas):
             
             if self.check_obstacle():
                 print('end')
-                if self.save_model:
-                    self.model.save (self.name_model)
-                if self.save_god:
-                    self.god.save (self.name_god)
+                if self.save:
+                    self.model.save (self.name)
                 self.reset_grid()
 
             if self.check_fruit():
@@ -448,7 +426,7 @@ class Can(Canvas):
         if y<0 or y>self.grid.dimension[1]-1: 
             self.snake.isdead=True
             res=True
-        if self.snake.isdead==False and self.grid.grid[y,x,0]!=0:
+        if self.snake.isdead==False and self.grid.grid[y,x]!=0:
             res=True
             self.snake.isdead=True
         return res
@@ -458,7 +436,6 @@ class Can(Canvas):
         xf,yf = self.snake.fruit
         if (x==xf and y==yf): 
             self.delete("fruit")
-            self.grid.grid[y,x,1]=0
             l=self.snake.length
             x,y=self.snake.position[l-1][0],self.snake.position[l-1][1]
             self.snake.position.append((x,y))
@@ -523,18 +500,17 @@ class Window_0(Frame):
     def space (self,event):
         x,y=self.w.snake.head
         dx,dy=self.w.get_left()
-        if self.w.grid.grid[dy+y,dx+x,0]==0:
+        if self.w.grid.grid[dy+y,dx+x]==0:
             self.w.left_IA()
         else: self.w.right_IA()
         self.w.snake.isdead=False
         self.start()
 
     def key_a (self,event):
-        pass
+        self.w.test_aff()
 
     def key_s (self,event):
-        self.w.god.save (self.w.name_god)
-        print('saved!')
+        self.w.test_sup()
 
     def move_mouse (self,event):
         pass
@@ -547,17 +523,15 @@ class Window_0(Frame):
         pass
         
     def mousedown_scroll_wheel(self, event):
-        # self.w.snake.isdead=True
+        self.w.snake.isdead=True
         for y in range (self.w.dimension[1]):
             l="|"
             for x in range (self.w.dimension[0]):
-                if self.w.grid.grid[y,x,0]==1 : l+="O" 
-                elif self.w.grid.grid[y,x,1]==1 : l+="F" 
+                if self.w.grid.grid[y,x]==1 : l+="O" 
                 else: l+=" "
             l+="|"
             print (l)
         print('_______________________________')
-        
 
 
     def mousedown_right(self, event):
