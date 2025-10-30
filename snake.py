@@ -58,6 +58,9 @@ class Can(Canvas):
             # 8 -> direction fruit par rapport snake droite 0/1
             # 9 -> direction fruit par rapport snake haut 0/1
             # 10 -> direction fruit par rapport snake bas 0/1
+        self.on_screen=True
+        self.compteur_echec=0
+        self.compteur=0
 
 
         self.init_grid()
@@ -98,10 +101,9 @@ class Can(Canvas):
         if new_god:
             self.god = tf.keras.models.Sequential()
             self.god.add(tf.keras.layers.Conv2D(32,(3,3),activation='relu', padding='same', input_shape=(self.dimension[1], self.dimension[0],2)))
-            self.god.add(tf.keras.layers.MaxPooling2D(2,2))
-            self.god.add(tf.keras.layers.Conv2D(64, (3,3), activation='relu', padding='same'))
+            self.god.add(tf.keras.layers.Conv2D(64,(3,3),activation='relu', padding='same'))
             self.god.add(tf.keras.layers.Flatten())
-            self.god.add(tf.keras.layers.Dense(128, activation='relu'))            
+            self.god.add(tf.keras.layers.Dense(128, activation='relu'))         
             self.god.add(tf.keras.layers.Dense(3,activation='softmax'))
 
             self.god.compile(
@@ -141,49 +143,55 @@ class Can(Canvas):
         return res
 
     def reset_grid(self):
-        self.delete("border")
-        for i in range (len(self.border)-1):
-            self.border.pop()
-        self.border=[]
-        self.delete("snake")
-        for i in range (len(self.obj)-1):
-            self.obj.pop()
-        self.obj=[]
-        self.delete("fruit")
-       
-        self.pack()
+        if self.on_screen:
+            self.delete("border")
+            for i in range (len(self.border)-1):
+                self.border.pop()
+            self.border=[]
+            self.delete("snake")
+            for i in range (len(self.obj)-1):
+                self.obj.pop()
+            self.obj=[]
+            self.delete("fruit")
+        
+            self.pack()
         self.grid=Grid(self.dimension)
         self.snake=Snake(self.dimension)
         self.init_grid()
    
     def init_grid(self):
-        self.border.append(self.create_rectangle(      0, 0, 
-                                                    self.dimension[0]*CASE, CASE, 
-                                                    fill='orange', outline="", tags="border"))
-        self.border.append(self.create_rectangle(      0, (self.dimension[1]-1)*CASE, 
-                                                    self.dimension[0]*CASE, (self.dimension[1]-1)*CASE+CASE, 
-                                                    fill='orange', outline="", tags="border"))
+        if self.on_screen:
+            self.border.append(self.create_rectangle(      0, 0, 
+                                                        self.dimension[0]*CASE, CASE, 
+                                                        fill='orange', outline="", tags="border"))
+            self.border.append(self.create_rectangle(      0, (self.dimension[1]-1)*CASE, 
+                                                        self.dimension[0]*CASE, (self.dimension[1]-1)*CASE+CASE, 
+                                                        fill='orange', outline="", tags="border"))
 
-        self.border.append(self.create_rectangle(      0, 0, 
-                                                    CASE, (self.dimension[1]-1)*CASE, 
-                                                    fill='orange', outline="", tags="border"))
-        self.border.append(self.create_rectangle(      (self.dimension[0]-1)*CASE, 0, 
-                                                    (self.dimension[0]-1)*CASE+CASE, self.dimension[1]*CASE, 
-                                                    fill='orange', outline="", tags="border"))
+            self.border.append(self.create_rectangle(      0, 0, 
+                                                        CASE, (self.dimension[1]-1)*CASE, 
+                                                        fill='orange', outline="", tags="border"))
+            self.border.append(self.create_rectangle(      (self.dimension[0]-1)*CASE, 0, 
+                                                        (self.dimension[0]-1)*CASE+CASE, self.dimension[1]*CASE, 
+                                                        fill='orange', outline="", tags="border"))
 
         for i in range (self.snake.length):
             x,y=self.snake.position[i]
             self.grid.grid[y,x,0]=1
-            x,y=x*CASE,y*CASE
-            if i==0:
-                self.obj.append(self.create_oval(x,y,x+CASE,y+CASE,width = 1, fill="black", tags="snake"))
-            else:
-                self.obj.append(self.create_oval(x,y,x+CASE,y+CASE,width = 1, fill="green", tags="snake"))
+
+
+            if self.on_screen:
+                x,y=x*CASE,y*CASE
+                if i==0:
+                    self.obj.append(self.create_oval(x,y,x+CASE,y+CASE,width = 1, fill="black", tags="snake"))
+                else:
+                    self.obj.append(self.create_oval(x,y,x+CASE,y+CASE,width = 1, fill="green", tags="snake"))
 
         
         self.draw_fruit()
-        self.draw_grid
-        self.pack()
+        if self.on_screen:
+            self.draw_grid
+            self.pack()
 
     def draw_grid(self):      
         color='blue'
@@ -204,25 +212,26 @@ class Can(Canvas):
             x,y=self.snake.position[i][0],self.snake.position[i][1]
             x1,y1=self.snake.position[i+1][0],self.snake.position[i+1][1]
             self.snake.position[i+1]=(x,y)
-            self.move(self.obj[i+1],(x-x1)*CASE,(y-y1)*CASE)
+            if self.on_screen: self.move(self.obj[i+1],(x-x1)*CASE,(y-y1)*CASE)
         x,y=self.snake.head
         x1,y1=self.snake.position[0][0],self.snake.position[0][1]
         self.snake.position[0]=(x,y)
         self.grid.grid[y,x,0]=1
-        self.move(self.obj[0],(x-x1)*CASE,(y-y1)*CASE)
-        if self.snake.count>15:
-            self.snake.count-=1
-            self.itemconfigure(self.obj[0],fill='cyan')
-        elif self.snake.count>10:
-            self.snake.count-=1
-            self.itemconfigure(self.obj[0],fill='deep sky blue')
-        elif self.snake.count>5:
-            self.snake.count-=1
-            self.itemconfigure(self.obj[0],fill='DodgerBlue2')
-        elif self.snake.count>0:
-            self.itemconfigure(self.obj[0],fill='black')
 
-        self.pack()
+        if self.on_screen:
+            self.move(self.obj[0],(x-x1)*CASE,(y-y1)*CASE)
+            if self.snake.count>15:
+                self.snake.count-=1
+                self.itemconfigure(self.obj[0],fill='cyan')
+            elif self.snake.count>10:
+                self.snake.count-=1
+                self.itemconfigure(self.obj[0],fill='deep sky blue')
+            elif self.snake.count>5:
+                self.snake.count-=1
+                self.itemconfigure(self.obj[0],fill='DodgerBlue2')
+            elif self.snake.count>0:
+                self.itemconfigure(self.obj[0],fill='black')
+            self.pack()
 
     def draw_fruit(self):
         maxx,maxy=self.dimension
@@ -241,9 +250,10 @@ class Can(Canvas):
                 
 
         self.snake.fruit=(x,y)
-        x0,y0=x*CASE,y*CASE
-        x1,y1=x0+CASE,y0+CASE
-        self.fruit=self.create_oval(x0,y0,x1,y1,width = 1, fill="red", tags="fruit")
+        if self.on_screen:
+            x0,y0=x*CASE,y*CASE
+            x1,y1=x0+CASE,y0+CASE
+            self.fruit=self.create_oval(x0,y0,x1,y1,width = 1, fill="red", tags="fruit")
 
     def get_left(self):
         dx,dy=0,0
@@ -411,6 +421,7 @@ class Can(Canvas):
             # else: predic=np.array([[0,0,1]],dtype=np.float32)
             x = np.expand_dims(self.grid.grid, axis=0)
             history = self.god.fit(x, predic,epochs=1, verbose=0)
+            self.compteur+=1
         
         x = np.expand_dims(self.grid.grid, axis=0)
         predic=self.god(x,verbose=0)
@@ -427,11 +438,13 @@ class Can(Canvas):
             growth=False
             
             if self.check_obstacle():
-                print('end')
+                print(f'end échec = {self.compteur_echec} | iération = {self.compteur} | longueur = {self.snake.length}')
+                self.compteur_echec+=1
                 if self.save_model:
                     self.model.save (self.name_model)
                 if self.save_god:
                     self.god.save (self.name_god)
+
                 self.reset_grid()
 
             if self.check_fruit():
@@ -457,13 +470,13 @@ class Can(Canvas):
         x,y = self.snake.head
         xf,yf = self.snake.fruit
         if (x==xf and y==yf): 
-            self.delete("fruit")
+            if self.on_screen: self.delete("fruit")
             self.grid.grid[y,x,1]=0
             l=self.snake.length
             x,y=self.snake.position[l-1][0],self.snake.position[l-1][1]
             self.snake.position.append((x,y))
             x,y=x*CASE,y*CASE
-            self.obj.append(self.create_oval(x,y,x+CASE,y+CASE,width = 1, fill="green", tags="snake"))
+            if self.on_screen: self.obj.append(self.create_oval(x,y,x+CASE,y+CASE,width = 1, fill="green", tags="snake"))
             self.snake.length+=1
             self.snake.count=20
             self.draw_fruit()
@@ -521,12 +534,13 @@ class Window_0(Frame):
             self.w.snake.dx=0
 
     def space (self,event):
-        x,y=self.w.snake.head
-        dx,dy=self.w.get_left()
-        if self.w.grid.grid[dy+y,dx+x,0]==0:
-            self.w.left_IA()
-        else: self.w.right_IA()
-        self.w.snake.isdead=False
+        self.w.reset_grid()
+        if self.w.on_screen==True: 
+            self.w.on_screen=False
+        else: 
+            self.w.on_screen=True
+        print(f"toto  {self.w.on_screen}")
+        self.w.reset_grid()
         self.start()
 
     def key_a (self,event):
@@ -558,8 +572,6 @@ class Window_0(Frame):
             print (l)
         print('_______________________________')
         
-
-
     def mousedown_right(self, event):
         self.w.update()
 
