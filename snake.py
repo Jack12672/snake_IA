@@ -64,7 +64,7 @@ class Can(Canvas):
 
 
         self.init_grid()
-        self.model=0
+        self.model=[]
         self.learn_model=False
         self.learn_god=True
         self.count=0
@@ -420,7 +420,7 @@ class Can(Canvas):
             # elif np.argmax(y)==1: predic=np.array([[0,1,0]],dtype=np.float32)
             # else: predic=np.array([[0,0,1]],dtype=np.float32)
             x = np.expand_dims(self.grid.grid, axis=0)
-            history = self.god.fit(x, predic,epochs=1, verbose=0)
+            history = self.god.fit(x, predic,epochs=5, verbose=0)
             self.compteur+=1
         
         x = np.expand_dims(self.grid.grid, axis=0)
